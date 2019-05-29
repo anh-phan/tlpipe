@@ -60,6 +60,8 @@ class Apply(timestream_task.TimestreamTask):
             for pi in [pol.index('xx'), pol.index('yy')]:
                 pi_ = gain_pd[pol[pi]]
                 for bi, (fd1, fd2) in enumerate(ts['blorder'].local_data):
+		    # print('fi: {}, pi_: {}, fd1: {}, feedno.index(fd1): {}'.format(fi, pi_, fd1, feedno.index(fd1)))
+		    # print('fi: {}, pi_: {}, fd2: {}, feedno.index(fd2): {}'.format(fi, pi_, fd2, feedno.index(fd2)))
                     g1 = gain[fi, pi_, feedno.index(fd1)]
                     g2 = gain[fi, pi_, feedno.index(fd2)]
                     if np.isfinite(g1) and np.isfinite(g2):

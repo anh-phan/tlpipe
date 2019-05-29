@@ -136,14 +136,22 @@ class PsCal(timestream_task.TimestreamTask):
             # get transit time of calibrator
             # array
             aa = ts.array
+            print('aa: ' + str(aa))
             aa.set_jultime(ts['jul_date'][0]) # the first obs time point
+            print('ts[\'jul_date\'][0]: ' + str(ts['jul_date'][0]))
             next_transit = aa.next_transit(s)
+            print('next_transit: ' + str(next_transit))
             transit_time = a.phs.ephem2juldate(next_transit) # Julian date
+            print('transit_time: ' + str(transit_time))
             # get time zone
             pattern = '[-+]?\d+'
             tz = re.search(pattern, ts.attrs['timezone']).group()
             tz = int(tz)
             local_next_transit = ephem.Date(next_transit + tz * ephem.hour) # plus 8h to get Beijing time
+            print('local_next_transit: ' + str(local_next_transit))
+            print('ts[\'jul_date\'][-1]: ' + str(ts['jul_date'][-1]))
+            print('ts[\'jul_date\'][:].max(): ' + str(ts['jul_date'][:].max()))
+            print('max: ' + str(max(ts['jul_date'][-1], ts['jul_date'][:].max())))
             # if transit_time > ts['jul_date'][-1]:
             if transit_time > max(ts['jul_date'][-1], ts['jul_date'][:].max()):
                 raise RuntimeError('Data does not contain local transit time %s of source %s' % (local_next_transit, calibrator))

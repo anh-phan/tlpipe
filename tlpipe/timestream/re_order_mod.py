@@ -40,8 +40,15 @@ class ReOrder(timestream_task.TimestreamTask):
 
         ts.redistribute('baseline')
 
+        ## Added 05/21/2019
+        ra = np.unwrap(ts['ra_dec'][:])
+        ra = 2*ra
+        dec = np.full(ra.shape, np.pi/2.0)
+        ra_dec = np.stack((ra, dec),axis=1)
+        ts.create_main_axis_ordered_dataset('time', 'ra_dec', ra_dec, (0,), recreate=True, copy_attrs=True)
+        ## Finish 05/21/2019
+
         start_ra = ts.vis.attrs['start_ra']
-	print(ts['ra_dec'])
         ra = np.unwrap(ts['ra_dec'][:, 0])
         # find the first index that ra closest to start_ra
         ind = np.searchsorted(ra, start_ra)
@@ -70,7 +77,6 @@ class ReOrder(timestream_task.TimestreamTask):
         ts.create_main_axis_ordered_dataset(axis_order, 'vis_mask', vis_mask, axis_order, recreate=True, copy_attrs=True)
 
         # for ra_dec
-	print('inttime: ' + str(ts.attrs['inttime']))
         ra_dec = np.zeros((num_int, 2), dtype=ts['ra_dec'].dtype)
         ra_dec[:nt1] = ts['ra_dec'][ind:ind+nt1]
         if nt1 < num_int: # not enough data
@@ -99,15 +105,12 @@ class ReOrder(timestream_task.TimestreamTask):
                 if dset.distributed:
                     data = mpiarray.MPIArray.wrap(data, axis=time_axis)
                 ts.create_main_axis_ordered_dataset(axis, name, data, axis_order, recreate=True, copy_attrs=True)
-	print('In re_order.py')
+
         # the new phi
-	print(ts['ra_dec'])
         phi = ts['ra_dec'][:, 0]
-	print('phi: ' + str(phi))
-	print('phi.shape: ' + str(phi.shape))
+        # np.save('/home/aphan/phi.npy',phi)
         # find phi = 0 ind
-        ind0 = np.where(np.diff([phi[-1]] + phi.tolist()) < -1.9 * np.pi)[0][0]
-	print('ind0: '+ str(ind0))
+        ind0 = np.where(np.diff([phi[-1]] + phi.tolist()) < -1.25 * np.pi)[0][0] # changed to -1.25 from -1.9 05/21/2019
         if ind0 == 0:
             if np.abs(phi[ind0] - 0) > np.abs(phi[-1] - 2*np.pi):
                 ind0 = num_int-1
@@ -117,19 +120,13 @@ class ReOrder(timestream_task.TimestreamTask):
 
         # re-order all main_time_ordered_datasets
         for name in ts.main_time_ordered_datasets.keys():
-	    print(name)
             if name in ts.iterkeys():
                 dset = ts[name]
-		print(dset)
                 time_axis = ts.main_time_ordered_datasets[name].index(0)
                 sel1 = [slice(0, None)] * (time_axis + 1)
                 sel2 = sel1[:]
-		print(sel1)
-		print(sel2)
                 sel1[time_axis] = slice(ind0, None)
                 sel2[time_axis] = slice(0, ind0)
-		print(dset.local_data[tuple(sel1)].shape)
-		print(dset.local_data[tuple(sel2)].shape)
                 dset.local_data[:] = np.concatenate([ dset.local_data[tuple(sel1)], dset.local_data[tuple(sel2)] ], axis=time_axis)
-		print('Done')
+
         return super(ReOrder, self).process(ts)

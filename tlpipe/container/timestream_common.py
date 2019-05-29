@@ -320,7 +320,7 @@ class TimestreamCommon(container.BasicTod):
                 # antpointing = rt['antpointing'][-1, :, :] # degree
                 # pointingtime = rt['pointingtime'][-1, :, :] # degree
                 az_alt[:, 0] = 0.0 # az
-                az_alt[:, 1] = np.pi/2 # alt
+                az_alt[:, 1] = np.radians(44.15) #np.pi/2 # alt
             elif self.is_cylinder:
                 az_alt[:, 0] = np.pi/2 # az
                 az_alt[:, 1] = np.pi/2 # alt
