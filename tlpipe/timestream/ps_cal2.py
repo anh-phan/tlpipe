@@ -366,8 +366,13 @@ class PsCal2(timestream_task.TimestreamTask):
                 print("Skipping t,f,p",ti,fi,pi," Vmin=0")
                 continue
             #All off-diagonal visibilities should have approximately the 
-            #same magnitude
-            Vratio_max = 25.0
+            #same magnitude assuming:
+            #1. A single point source is dominant
+            #2  The uncalibrated gains are approximately equal
+            #We expect deviations from assumption 2 at the band edges,
+            #where the filter edges lead to large differences in gain
+            fpos = np.float64(fi)/np.float64(nfreq) - 0.5
+            Vratio_max = 25.0 + 100.0*fpos**2
             if Vmax/Vmin>Vratio_max:
                 print("Skipping t,f,p",ti,fi,pi,"Vratio=",Vmax/Vmin, \
                           ">",Vratio_max)
@@ -642,6 +647,7 @@ class PsCal2(timestream_task.TimestreamTask):
                     ave = ma.mean(Gi)
                     rms = ma.std(Gi,ddof=1)
                     dG = ma.abs(Gi-ave)
+                    dG.data = np.where(np.isfinite(dG.data),dG,2*tol)
 #
 # IF dG is ont finite and mask=False
                     nG = len(Gi)
@@ -668,16 +674,22 @@ class PsCal2(timestream_task.TimestreamTask):
                     nmask1 = ma.count_masked(Gi)
 #                if nmask1>0:
 #                    print("****",ii,nmask1)
+#
                     print("Gi1=",Gi)
                     Gi = ma.masked_where(dG.data>tol,Gi)
                     print("Gi2=",Gi)
                     nmask2 = ma.count_masked(Gi)
                     if nmask2>nmask1:
 #                    print("nmask=",nmask1,nmask2)
-                        ave = np.mean(Gi)
-                        rms = np.std(Gi,ddof=1)
+                        ave = ma.mean(Gi)
+                        rms = ma.std(Gi,ddof=1)
                             #print("ave2=",ave," rms=",rms)
                     nval = ma.count(Gi)
+                    
+#Gain should always be non-zero
+                    if abs(ave)==0.0:
+                        print("Gain=0 f,p,d=",fi,pi,di)
+                        continue
                     if nval>0:
                         lgain[ii] = ave
                         sigma = rms/np.sqrt(nval)
@@ -687,11 +699,15 @@ class PsCal2(timestream_task.TimestreamTask):
                     if plot_gain_vs_time:
                             #print("Gi.mask=",Gi.mask)
                             #Gi.mask[3] = True
-                        nmask = ma.count_masked(Gi)
-                        amp = np.abs(Gi.data)
+                        amp = ma.masked_invalid(np.abs(Gi.data))
+                        nval = ma.count(amp)
+                        if nval==0:
+                            continue
                         hiamp = np.max(amp)
                         loamp = np.min(amp)
                         spamp = hiamp-loamp
+                        if spamp<0.1*hiamp:
+                            spamp = 0.1*hiamp
                         hiamp = hiamp + spamp/2.0
                         loamp = max(loamp/2.0,loamp-spamp/2.0)
                         amperr = np.zeros_like(amp)

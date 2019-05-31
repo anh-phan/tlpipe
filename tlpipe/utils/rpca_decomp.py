@@ -51,6 +51,7 @@ def shrink(a, lmbda):
 def decompose(M, rank=1, S=None, lmbda=None, threshold='hard', max_iter=100, tol=1.0e-8, check_hermitian=False, debug=False):
     """Stable principal component decomposition of an Hermitian matrix."""
 
+    err = 0 # intialize to no error
     if check_hermitian:
         if not np.allclose(M, M.T.conj()):
             raise ValueError('M must be a Hermitian matrix')
@@ -124,6 +125,7 @@ def decompose(M, rank=1, S=None, lmbda=None, threshold='hard', max_iter=100, tol
         S_old = S
 
     else:
+        err = 1 # Flag failure to converge
         print 'Exit with max_iter: %d, tol: %g >= %g' % (it, tol1, tol)
 
-    return L, S
+    return L, S, err
