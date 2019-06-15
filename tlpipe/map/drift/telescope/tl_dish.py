@@ -187,6 +187,7 @@ class TlUnpolarisedDishArray(TlDishArray, telescope.SimpleUnpolarisedTelescope):
         """
         # return beam_circular(self._angpos, self.zenith,
         #                      self.dish_width / self.wavelengths[freq])
+	# print('beam_circular: {}'.format(beam_circular(self._angpos, self.point_dirction, self.dish_width / self.wavelengths[freq])))
         return beam_circular(self._angpos, self.point_dirction,
                              self.dish_width / self.wavelengths[freq])
 

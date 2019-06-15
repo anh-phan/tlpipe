@@ -160,10 +160,10 @@ class PsCal2(timestream_task.TimestreamTask):
         next_transit = aa.next_transit(s)
         print("next_transit=",next_transit)
             #conversion factor radians->degrees
-        pir = 180.0/np.pi
+        #pir = 180.0/np.pi
             #get ra,dec of source in degrees.
-        ra = pir*np.float64(repr(s.ra))
-        dec = pir*np.float64(repr(s.dec))
+        ra = np.degrees(s.ra)
+        dec = np.degrees(s.dec)
             #number of sources in transitsource table
         nsource = tsrc.shape[0]
             #initialize transit time = not found in table
@@ -179,14 +179,15 @@ class PsCal2(timestream_task.TimestreamTask):
            # print("ts['transitsource'][1,2]=",tsrc[i,2],"  180*s.dec/pi=",dec)
             transit = datetime.utcfromtimestamp(tsrc[ns,0])
             transit_time = date_util.get_juldate(transit,tzone='UTC+00h')
-            message = "Found calibrator in at ra=%.1f dec=%.1f transit source table line=%i" \
+            message = "Found calibrator in at ra=%.10f dec=%.10f transit source table line=%i" \
                 % (ra,dec,ns)
             logger.debug(message)
             message = "Transit time=%.6f (Julian date)" % transit_time
             logger.debug(message)
             next_transit = a.phs.juldate2ephem(transit_time)
             break
-        
+
+	print('transit_time: ' + str(transit_time))        
         #If transit_time is not found in transitsource array, use ephem meridian
         #transit time
         if transit_time<0.0:
@@ -203,9 +204,11 @@ class PsCal2(timestream_task.TimestreamTask):
 
         # the first transit index
         transit_inds = [ np.searchsorted(ts['jul_date'][:], transit_time) ]
+	print('transit_inds: ' + str(transit_inds))
         # find all other transit indices
         aa.set_jultime(ts['jul_date'][0] + 1.0)
         transit_time = a.phs.ephem2juldate(aa.next_transit(s)) # Julian date
+	print('real transit_time: ' + str(transit_time))
         cnt = 2
         while(transit_time <= ts['jul_date'][-1]):
             transit_inds.append(np.searchsorted(ts['jul_date'][:], transit_time))
@@ -222,7 +225,8 @@ class PsCal2(timestream_task.TimestreamTask):
         int_time = ts.attrs['inttime'] # second
         start_ind = transit_ind - np.int(span / int_time)
         # plus 1 to make transit_ind at the center
-        end_ind = transit_ind + np.int(span / int_time) + 1 
+        end_ind = transit_ind + np.int(span / int_time) + 1
+	print('transit_ind: {}, start_ind: {}, end_ind: {}'.format(transit_ind, start_ind, end_ind))
 
         # check if data contain this range
         if start_ind < 0:
@@ -237,6 +241,8 @@ class PsCal2(timestream_task.TimestreamTask):
         nbl = len(ts.local_bl[:])
         nlb =  nbl
         nfeed = len(feedno)
+	print('feedno: {}'.format(feedno))
+	print('ntbin: {}, nfreq: {}, nlb: {}, nfeed {}'.format(ntbin, nfreq, nlb, nfeed))
         #List of time bins x frequency bins x 2 like (xx,yy) polarizations
         tfp_inds = list(itertools.product(t_inds, range(nfreq), [pol.index('xx'), pol.index('yy')]))
         ns, ss, es = mpiutil.split_all(len(tfp_inds), comm=ts.comm)
