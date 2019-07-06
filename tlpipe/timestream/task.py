@@ -29,12 +29,13 @@ class Task(timestream_task.TimestreamTask):
         print('ts.local_vis.shape: {}'.format(ts.local_vis.shape))
         print('ts.local_vis_mask.shape: {}'.format(ts.local_vis_mask.shape))
 
-        print(ts.local_vis[1800,255,0,0])
-        print(ts.local_vis[1800,255,1,0])
-        print(ts.local_vis[1800,255,2,0])
-        print(ts.local_vis[1800,255,3,0])
+        # print(ts.local_vis[1800,255,0,0])
+        # print(ts.local_vis[1800,255,1,0])
+        # print(ts.local_vis[1800,255,2,0])
+        # print(ts.local_vis[1800,255,3,0])
 
         print('ts[\'blorder\'].local_data: {}'.format(ts['blorder'].local_data))
+	print(len(ts['blorder'].local_data))
 
         #print('ts.freq[:]: {}'.format(ts.freq[:]))
         # nf = len(freq)
