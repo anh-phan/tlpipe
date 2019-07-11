@@ -6,6 +6,11 @@ from tlpipe.container.raw_timestream import RawTimestream
 from scipy.interpolate import interp1d, Rbf
 from numpy import linalg as LA
 import scipy.signal as signal
+import numpy.ma as ma
+import logging
+
+# Set the module logger.
+logger = logging.getLogger(__name__)
 
 
 class SunRemoval(timestream_task.TimestreamTask):
@@ -28,16 +33,16 @@ class SunRemoval(timestream_task.TimestreamTask):
         
         #########################################
         bl_length = len(rt['blorder'].local_data)
-	    # create an empty array of size bl_length rows x 3 cols
         bl = np.empty([bl_length,3],'int')
         
-        # populate the array: first col is the index (0-527), 2nd and 3rd are the baselines
+        # first col is the index (0-527), 2nd and 3rd are the baselines
         for i in xrange(bl_length):
             bl[i] = [i,rt['blorder'].local_data[i][0],rt['blorder'].local_data[i][1]]
-	    sort_index = np.lexsort((bl[:,2], bl[:,1]))  # sort according to 1st and 2nd columns
-	    bl = bl[sort_index]
-        #########################################
         
+        sort_index = np.lexsort((bl[:,2], bl[:,1]))  # sort according to 1st and 2nd columns
+        bl = bl[sort_index]
+        #########################################
+
         num_bl = len(bl)
         num_feed = len(np.unique(bl[:, 1]))
 
@@ -46,9 +51,16 @@ class SunRemoval(timestream_task.TimestreamTask):
         eig_vectors_x = np.zeros((rt.local_vis.shape[0], rt.local_vis.shape[1], num_feed/2, num_feed/2), dtype=complex) 
         eig_vectors_y = np.zeros((rt.local_vis.shape[0], rt.local_vis.shape[1], num_feed/2, num_feed/2), dtype=complex) 
 
+        eig_values_xma = ma.zeros(eig_values_x.shape,dtype=complex)
+        eig_values_yma = ma.zeros(eig_values_y.shape,dtype=complex)
+
+        logger.info("Task %s: Processing eigenvalues and eigenvectors..." % self.__class__.__name__)
+
+        time_mask = np.zeros((rt.local_vis.shape[0], rt.local_vis.shape[1]), dtype = bool)
         for fi in xrange(rt.local_vis.shape[1]):
             for ti in xrange(rt.local_vis.shape[0]):
-                if np.any(rt.local_vis_mask[ti, fi, :]):
+                if np.all(rt.local_vis_mask[ti, fi, :]):
+                    time_mask[ti, fi] = True
                     continue 
                 vis_matrix_x = np.zeros((num_feed/2, num_feed/2), dtype=complex)  # 16 by 16 matrix
                 vis_matrix_y = np.zeros((num_feed/2, num_feed/2), dtype=complex)  # 16 by 16 matrix
@@ -100,6 +112,18 @@ class SunRemoval(timestream_task.TimestreamTask):
                 eig_values_x[ti, fi, :], eig_vectors_x[ti, fi, :] = LA.eigh(vis_matrix_x)
                 eig_values_y[ti, fi, :], eig_vectors_y[ti, fi, :] = LA.eigh(vis_matrix_y)
 
+            # Masking
+            for n in xrange(0,num_feed/2):
+                eig_values_xma[:, fi, n] = ma.masked_array(eig_values_x[:, fi, n], mask=time_mask)
+                eig_values_yma[:, fi, n] = ma.masked_array(eig_values_y[:, fi, n], mask=time_mask)
+
+        del eig_values_x
+        del eig_values_y
+        eig_values_x = eig_values_xma
+        eig_values_y = eig_values_yma
+
+        logger.info("Task %s: Filtering largest eigenvalue." % self.__class__.__name__)
+
         ########### Filtering #############
         for fi in xrange(rt.local_vis.shape[1]):
             max_x = eig_values_x[:,fi,-1]  # last (largest eigenvalues)
@@ -118,39 +142,40 @@ class SunRemoval(timestream_task.TimestreamTask):
 
             for ti in xrange(rt.local_vis.shape[0]):
                 if max_x[ti] > med_x + thres*var_x:
-                    eig_values_x[i,fi,-1] = 0
+                    eig_values_x[ti,fi,-1] = 0
                 if max_y[ti] > med_y + thres*var_y:
-                    eig_values_y[i,fi,-1] = 0
+                    eig_values_y[ti,fi,-1] = 0
         ###################################
+
+        logger.info("Task %s: Reconstructing the visibilities." % self.__class__.__name__)
 
         for fi in xrange(rt.local_vis.shape[1]):
             for ti in xrange(rt.local_vis.shape[0]):
-                if np.any(rt.local_vis_mask[ti, fi, :]):
+                if np.all(rt.local_vis_mask[ti, fi, :]):
                     continue 
                 vis_matrix_x = np.matmul(eig_vectors_x[ti, fi, :],np.matmul(np.diag(eig_values_x[ti, fi, :]),eig_vectors_x[ti, fi, :].conj().T))
                 vis_matrix_y = np.matmul(eig_vectors_y[ti, fi, :],np.matmul(np.diag(eig_values_y[ti, fi, :]),eig_vectors_y[ti, fi, :].conj().T))
-                vis_matrix = np.zeros((num_feed,num_feed),dtype=complex)  # 32 by 32 matrix
-                vis_matrix = vis_matrix * np.nan
+                vis_matrix = np.zeros((num_feed,num_feed),dtype=complex)
+                vis_toggle = np.zeros((num_feed,num_feed),dtype=bool)
                 for r in range(num_feed):
                     for c in range(num_feed):
                         if r <= c and r % 2 == 0 and c % 2 == 0:
                             vis_matrix[r,c] = vis_matrix_x[int(r/2), int(c/2)]
+                            vis_toggle[r,c] = True
                         elif r <= c and r % 2 == 1 and c % 2 == 1:
                             vis_matrix[r,c] = vis_matrix_y[int(r/2), int(c/2)]
+                            vis_toggle[r,c] = True
                 # flatten
                 for b in bl:
                     row = b[1] - 1
                     col = b[2] - 1
-                    if not np.isnan(vis_matrix[row, col]):
+                    if vis_toggle[row, col]:
                         rt.local_vis[ti, fi, b[0]] = vis_matrix[row, col]
         
         del eig_values_x
         del eig_values_y
         del eig_vectors_x
         del eig_vectors_y
-        del vis_matrix_x
-        del vis_matrix_y
-        del vis_matrix
 
         return super(SunRemoval, self).process(rt)
 
