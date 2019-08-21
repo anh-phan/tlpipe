@@ -4,7 +4,9 @@ import timestream_task
 # from tlpipe.container.timestream import Timestream
 from tlpipe.container.raw_timestream import RawTimestream
 from scipy.interpolate import interp1d, Rbf
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Interpolation(timestream_task.TimestreamTask):
 
@@ -20,6 +22,8 @@ class Interpolation(timestream_task.TimestreamTask):
             rt, RawTimestream), '%s only works for RawTimestream object currently' % self.__class__.__name__
 
         interp = self.params['interp']
+
+	logger.info("Task %s: Begin interpolation..." % self.__class__.__name__)
 
         if interp != 'none':
             for fi in xrange(rt.local_vis.shape[1]):
@@ -41,5 +45,7 @@ class Interpolation(timestream_task.TimestreamTask):
                             rt.local_vis[true_inds, fi, bi] = itp_real(true_inds) + 1.0J * itp_imag(true_inds) # the interpolated vis
                         else:
                             rt.local_vis[:, fi, bi] = 0 # TODO: may need to take special care
-
-        return super(Interpolation, self).process(rt)
+	
+	logger.info("Task %s: Done interpolation" % self.__class__.__name__)
+        
+	return super(Interpolation, self).process(rt)
