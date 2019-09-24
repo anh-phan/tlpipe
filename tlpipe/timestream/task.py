@@ -20,7 +20,8 @@ class Task(timestream_task.TimestreamTask):
         print('isinstance(ts, Timestream): {}'.format(isinstance(ts, Timestream))) 
 
         print('ts.local_vis.shape: {}'.format(ts.local_vis.shape))
-
+	print('ts.array: {}'.format(ts.array))
+	print('ts.freq[0]: {}'.format(ts.freq[0]))
         ts.redistribute('baseline')
 
         print('ts[\'local_hour\']: {}'.format(ts['local_hour']))

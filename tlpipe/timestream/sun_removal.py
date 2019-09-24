@@ -25,6 +25,9 @@ class SunRemoval(timestream_task.TimestreamTask):
 
     def process(self, rt):
 
+        def nan_helper(y):
+            return np.isnan(y), lambda z: z.nonzero()[0]
+
         assert isinstance(rt, RawTimestream), '%s only works for RawTimestream object currently' % self.__class__.__name__
 
         filter_order = self.params['filter_order']
@@ -124,28 +127,79 @@ class SunRemoval(timestream_task.TimestreamTask):
 
         logger.info("Task %s: Filtering largest eigenvalue." % self.__class__.__name__)
 
-        ########### Filtering #############
-        for fi in xrange(rt.local_vis.shape[1]):
-            max_x = eig_values_x[:,fi,-1]  # last (largest eigenvalues)
-            max_y = eig_values_y[:,fi,-1]  
+        tangent = []
+        for ti in xrange(eig_vectors_x.shape[0]):
+            l = []
+            for i in xrange(eig_vectors_x.shape[2]-1):
+                temp = 0
+                for j in xrange(i+1,eig_vectors_x.shape[2]):
+                    temp += np.power(np.abs(eig_vectors_x[ti,0,j,-1]),2)
+                if temp < 1e-15:
+                    t = np.nan
+                else:
+                    t = np.abs(eig_vectors_x[ti,0,j,-1])/np.sqrt(temp)
+                l.append(t)
+                del t, temp
+            tangent.append(l)
+            del l
+        tangent = np.array(tangent,dtype=float)
+
+        tangent_filled = []
+        for i in xrange(tangent.shape[1]):
+            temp = np.copy(tangent[:,i])
+            nans, x = nan_helper(temp)
+            temp[nans] = np.interp(x(nans), x(~nans), temp[~nans])
+            tangent_filled.append(temp)
+            del temp
+        tangent_filled = np.array(tangent_filled,dtype=float).T
+
+        del tangent
+        tangent = tangent_filled
+        del tangent_filled
+
+        ### Filtering ###
+        tangent_filtered = []
+        for i in xrange(tangent.shape[1]):
             B, A = signal.butter(filter_order, cutoff_freq, output='ba')
-            # Apply the filter
-            max_xf = signal.filtfilt(B,A, max_x)
-            max_yf = signal.filtfilt(B,A, max_y)
-            residuals_x = max_x - max_xf
-            residuals_y = max_y - max_yf
+            temp = signal.filtfilt(B,A, tangent)
+            tangent_filtered.append(temp)
+            del temp
+        tangent_filtered = np.array(tangent_filtered,dtype=float).T
 
-            var_x = np.var(residuals_x)
-            med_x = np.median(max_xf)
-            var_y = np.var(residuals_y)
-            med_y = np.median(max_yf)
+        del tangent
+        tangent = tangent_filtered
+        del tangent_filtered
 
-            for ti in xrange(rt.local_vis.shape[0]):
-                if max_x[ti] > med_x + thres*var_x:
-                    eig_values_x[ti,fi,-1] = 0
-                if max_y[ti] > med_y + thres*var_y:
-                    eig_values_y[ti,fi,-1] = 0
-        ###################################
+        eig_vector_abs_x = []
+        lim = eig_values_x.shape[2]
+        for ti in xrange(eig_vectors_x.shape[0]):
+            x = np.zeros((lim,),dtype=float)
+            for i in xrange(lim):
+                if i != lim - 1:
+                    x[i] = np.sin(np.arctan(tangent[ti,i]))
+                else:
+                    x[i] = 1.0
+                for j in xrange(i):
+                    x[i] = x[i]*np.cos(np.arctan(tangent[ti,j]))
+            eig_vector_abs_x.append(x)
+        del x
+        eig_vector_abs_x = np.array(eig_vector_abs_x,dtype=float)  # this is the np.abs of the largest eigenvector
+
+        eig_vector_max_x = []
+        for i in xrange(lim):
+            eig_vector_max_x.append(np.multiply(eig_vector_abs_x[:,i],np.cos(np.angle(eig_vectors_x[:,0,i,-1]))) 
+                                + 1j* np.multiply(eig_vector_abs_x[:,i],np.sin(np.angle(eig_vectors_x[:,0,i,-1]))))
+        eig_vector_max_x = np.array(eig_vector_abs_x,dtype=complex).T
+        
+        del eig_vector_abs_x, lim
+
+        vis_sun_x = []
+        for ti in xrange(eig_vectors_x.shape[0]):
+            temp = eig_values_x[ti,0,-1]*np.outer(eig_vectors_x[ti, 0, :, -1].conj().T,eig_vectors_x[ti, 0, :, -1])
+            vis_sun_x.append(temp)
+            del temp
+        vis_sun_x = np.array(vis_sun_x,dtype=complex)
+        vis_sun_x = vis_sun_x.conj()
 
         logger.info("Task %s: Reconstructing the visibilities." % self.__class__.__name__)
 
@@ -154,6 +208,7 @@ class SunRemoval(timestream_task.TimestreamTask):
                 if np.all(rt.local_vis_mask[ti, fi, :]):
                     continue 
                 vis_matrix_x = np.matmul(eig_vectors_x[ti, fi, :],np.matmul(np.diag(eig_values_x[ti, fi, :]),eig_vectors_x[ti, fi, :].conj().T))
+                vis_matrix_x = vis_matrix_x - vis_sun_x[ti]
                 vis_matrix_y = np.matmul(eig_vectors_y[ti, fi, :],np.matmul(np.diag(eig_values_y[ti, fi, :]),eig_vectors_y[ti, fi, :].conj().T))
                 vis_matrix = np.zeros((num_feed,num_feed),dtype=complex)
                 vis_toggle = np.zeros((num_feed,num_feed),dtype=bool)

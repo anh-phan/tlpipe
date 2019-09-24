@@ -56,6 +56,7 @@ class TimestreamTask(OneAndOne):
                     'output_failed_continue': False, # continue to run if output to files failed
                     'time_select': (0, None),
                     'freq_select': (0, None),
+                    'bl_select': (0, None),
                     'pol_select': (0, None), # only useful for ts
                     'feed_select': (0, None),
                     'corr': 'all',
@@ -151,6 +152,8 @@ class TimestreamTask(OneAndOne):
             full_data = False
         if self.params['freq_select'] != (0, None):
             full_data = False
+        if self.params['bl_select'] != (0, None):
+            full_data = False
         if self._Tod_class == Timestream and self.params['pol_select'] != (0, None):
             full_data = False
         if self.params['feed_select'] != (0, None) or self.params['corr'] != 'all':
@@ -168,6 +171,9 @@ class TimestreamTask(OneAndOne):
         if self.params['freq_select'] != (0, None):
             full_data = False
             tod.frequency_select(self.params['freq_select'])
+        if self.params['bl_select'] != (0, None):
+            full_data = False
+            tod.baseline_select(self.params['bl_select'])
         if self._Tod_class == Timestream and self.params['pol_select'] != (0, None):
             full_data = False
             tod.polarization_select(self.params['pol_select'])
@@ -187,6 +193,9 @@ class TimestreamTask(OneAndOne):
         if self.params['freq_select'] != (0, None):
             full_data = False
             tod.subset_frequency_select(self.params['freq_select'])
+        if self.params['bl_select'] != (0, None):
+            full_data = False
+            tod.subset_baseline_select(self.params['bl_select'])
         if self._Tod_class == Timestream and self.params['pol_select'] != (0, None):
             full_data = False
             tod.subset_polarization_select(self.params['pol_select'])

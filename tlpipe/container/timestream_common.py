@@ -144,33 +144,33 @@ class TimestreamCommon(container.BasicTod):
     _feed_select = None
     _subset_feed_select = None
 
-    # def baseline_select(self, value):
-    #     """Select data to be loaded from input files along the baseline axis.
+    def baseline_select(self, value):
+        """Select data to be loaded from input files along the baseline axis.
 
-    #     Parameters
-    #     ----------
-    #     value : tuple or list
-    #         If a tuple, which will be created as a slice(start, stop, step) object,
-    #         so it can have one to three elements (integers or None); if a list, its
-    #         elements must be strictly increasing non-negative integers, data in
-    #         these positions will be selected.
+        Parameters
+        ----------
+        value : tuple or list
+            If a tuple, which will be created as a slice(start, stop, step) object,
+            so it can have one to three elements (integers or None); if a list, its
+            elements must be strictly increasing non-negative integers, data in
+            these positions will be selected.
 
-    #     """
-    #     self.data_select('baseline', value)
+        """
+        self.data_select('baseline', value)
 
-    # def subset_baseline_select(self, value):
-    #     """Select a subset of the data along the baseline axis.
+    def subset_baseline_select(self, value):
+        """Select a subset of the data along the baseline axis.
 
-    #     Parameters
-    #     ----------
-    #     value : tuple or list
-    #         If a tuple, which will be created as a slice(start, stop, step) object,
-    #         so it can have one to three elements (integers or None); if a list, its
-    #         elements must be strictly increasing non-negative integers, data in
-    #         these positions will be selected.
+        Parameters
+        ----------
+        value : tuple or list
+            If a tuple, which will be created as a slice(start, stop, step) object,
+            so it can have one to three elements (integers or None); if a list, its
+            elements must be strictly increasing non-negative integers, data in
+            these positions will be selected.
 
-    #     """
-    #     self.subset_select('baseline', value)
+        """
+        self.subset_select('baseline', value)
 
 
     def feed_select(self, value=(0, None), corr='all'):
